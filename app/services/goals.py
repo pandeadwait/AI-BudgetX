@@ -31,6 +31,11 @@ def plan(db: Session, goal: Goal, as_of: date | None = None) -> dict:
     feasible = remaining == 0 or (months_left > 0 and surplus >= monthly_required)
     flex = spending.top_flex_category(db, goal.user_id)
 
+    # "Cut dining by 38%" is a far more useful answer than "cut dining", and it
+    # is arithmetic — so Python does it here rather than letting the model try.
+    flex_monthly = round(flex["total"] / 3, 2) if flex else 0.0
+    cut_pct = round(gap / flex_monthly * 100, 1) if flex_monthly and gap else 0.0
+
     if remaining == 0:
         verdict = f"'{goal.name}' is already funded."
     elif months_left == 0:
@@ -56,6 +61,15 @@ def plan(db: Session, goal: Goal, as_of: date | None = None) -> dict:
         "gap": gap,
         "feasible": feasible,
         "top_flex_category": flex["category_name"] if flex else None,
+        # Nested, not three loose keys: the percentage is a cut *of this
+        # category*, and flat keys let the model reattach it to "your spending"
+        # generally, which is a different and wrong claim.
+        "closing_the_gap": {
+            "category": flex["category_name"] if flex else None,
+            "its_monthly_spend": flex_monthly,
+            "cut_this_category_by_pct": cut_pct if 0 < cut_pct <= 100 else None,
+            "cut_this_category_by_amount": gap if 0 < cut_pct <= 100 else None,
+        } if flex and gap else None,
         "verdict": verdict,
     }
 

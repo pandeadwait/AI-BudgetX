@@ -35,10 +35,23 @@ def run_tool(db: Session, name: str, args: dict) -> tuple[dict, str]:
         agg = spending.totals(db, DEMO_USER_ID, start, end)
         cats = spending.by_category(db, DEMO_USER_ID, start, end)
         delta, delta_pct = spending.mom_delta(db, DEMO_USER_ID, args.get("month"))
+        # A detailed answer needs detailed facts. The model can only be as
+        # specific as what Python hands it — every figure here is computed.
+        essential = round(sum(c["total"] for c in cats if c["is_essential"]), 2)
+        flexible = round(sum(c["total"] for c in cats if not c["is_essential"]), 2)
+        days_in = (min(end, date.today()) - start).days + 1
         facts = {
-            "month": f"{start:%Y-%m}",
+            "month": f"{start:%B %Y}",
+            "days_elapsed": days_in,
+            "days_remaining": (end - min(end, date.today())).days,
             "total_spent": agg["expense"],
-            "top_categories": cats[:3],
+            "total_income": agg["income"],
+            "surplus_so_far": round(agg["income"] - agg["expense"], 2),
+            "daily_average": round(agg["expense"] / days_in, 2),
+            "essential_spend": essential,
+            "flexible_spend": flexible,
+            "flexible_share_pct": round(flexible / agg["expense"] * 100, 1) if agg["expense"] else 0.0,
+            "all_categories": cats,
             "mom_delta": delta,
             "mom_delta_pct": delta_pct,
         }
@@ -52,7 +65,23 @@ def run_tool(db: Session, name: str, args: dict) -> tuple[dict, str]:
     if name == "budget_status":
         states = [budget_svc.status(db, b) for b in budget_svc.for_month(db, DEMO_USER_ID, args.get("month"))]
         risky = [s for s in states if s["projected_over"]]
-        facts = {"budgets": states, "projected_over": [s["category_name"] for s in risky]}
+        slack = [
+            {"category_name": s["category_name"],
+             "spare": budget_svc.slack_amount(s["projected_total"], s["limit_amount"])}
+            for s in states
+        ]
+        facts = {
+            "budgets": states,
+            "projected_over": [
+                {"category_name": s["category_name"], "over_by": s["projected_over"]}
+                for s in sorted(risky, key=lambda s: -s["projected_over"])
+            ],
+            "on_pace_count": len(states) - len(risky),
+            "budget_count": len(states),
+            "total_allocated": round(sum(s["limit_amount"] for s in states), 2),
+            "total_spent": round(sum(s["spent"] for s in states), 2),
+            "categories_with_room": [s for s in slack if s["spare"]],
+        }
         if not states:
             return facts, "You haven't set any budgets for this month yet."
         if not risky:

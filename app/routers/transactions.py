@@ -109,14 +109,19 @@ def add_transaction(payload: TransactionIn, db: Session = Depends(get_db)):
         # Amounts are handed over pre-formatted. The model is not asked to round
         # or punctuate a figure — it copies strings. Deterministic sentence goes
         # in as the fallback, so a failure costs charm, never a correct number.
+        # Every figure the sentence could possibly need is precomputed and
+        # named for exactly what it is. Anything missing here is something the
+        # model would otherwise be tempted to work out for itself.
         facts = {
             "level": alert.level,
             "category": txn.category.name,
-            "spent": f"₹{alert.spent_at_trigger:,.0f}",
-            "limit": f"₹{alert.limit_at_trigger:,.0f}",
-            "projected_total": f"₹{alert.projected_at_trigger:,.0f}",
-            "pct_used": f"{state['pct_used']:.0f}%",
-            "days_left": state["days_left"],
+            "already_spent": f"₹{alert.spent_at_trigger:,.0f}",
+            "budget_limit": f"₹{alert.limit_at_trigger:,.0f}",
+            "still_left_to_spend": f"₹{max(alert.limit_at_trigger - alert.spent_at_trigger, 0):,.0f}",
+            "projected_total_by_period_end": f"₹{alert.projected_at_trigger:,.0f}",
+            "projected_amount_over_limit": f"₹{state['projected_over']:,.0f}",
+            "pct_of_budget_used": f"{state['pct_used']:.0f}%",
+            "days_left_in_period": state["days_left"],
         }
         alert.message = narrate.alert(db, facts, alert.message)
         db.commit()

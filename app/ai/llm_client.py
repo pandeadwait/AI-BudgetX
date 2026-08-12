@@ -56,7 +56,7 @@ def _call_provider(prompt: str, temperature: float) -> str:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": 800,
+                "maxOutputTokens": 2000,
                 # 2.5-flash reasons before answering and charges that to the
                 # output budget, so a one-sentence request comes back truncated
                 # mid-word and JSON comes back unparseable. Every task here is

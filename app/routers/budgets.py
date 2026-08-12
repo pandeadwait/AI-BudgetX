@@ -76,7 +76,7 @@ def suggest_budgets(month: str | None = None, db: Session = Depends(get_db)):
     result = complete_json(
         db,
         "budget_suggest",
-        load_prompt("budget_suggest", history=json.dumps(history)),
+        load_prompt("budget_suggest", history=json.dumps(history, ensure_ascii=False)),
         temperature=0.3,
         fallback=fallback,
     )

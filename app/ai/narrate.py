@@ -13,7 +13,7 @@ def alert(db: Session, facts: dict, deterministic: str) -> str:
     return complete(
         db,
         "narrate_alert",
-        load_prompt("narrate_alert", facts=json.dumps(facts, default=str)),
+        load_prompt("narrate_alert", facts=json.dumps(facts, default=str, ensure_ascii=False)),
         temperature=0.7,
         fallback=deterministic,
     )
@@ -24,7 +24,7 @@ def answer(db: Session, question: str, facts: dict, deterministic: str) -> str:
         db,
         "narrate_answer",
         load_prompt(
-            "narrate_answer", question=question, facts=json.dumps(facts, default=str)
+            "narrate_answer", question=question, facts=json.dumps(facts, default=str, ensure_ascii=False)
         ),
         temperature=0.4,
         fallback=deterministic,

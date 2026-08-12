@@ -258,11 +258,17 @@ the cooldown. Once you've tested the ₹800 transaction, `PROJECTED_OVERRUN` for
 that budget has fired and **will not fire again** — the next one saves silently
 with `"alert": null`. This looks exactly like a broken frontend and isn't.
 
-Reset before every rehearsal:
+Reset before every rehearsal — **stop the API first**:
 
 ```bash
+# Ctrl-C the uvicorn terminal, then:
 .venv/bin/python -m app.seed        # drops everything, reseeds
 ```
+
+Reseeding while the server is running deadlocks: `DROP TABLE` needs an
+exclusive lock that the live connections are holding, and Postgres kills one
+side of it. If you see `DeadlockDetected`, that's all this is — stop the
+server and run it again.
 
 That wipes the shared database, so tell the team before you run it.
 

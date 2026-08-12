@@ -74,7 +74,7 @@ def themes(months: int = 3, db: Session = Depends(get_db)):
     result = complete_json(
         db,
         "themes",
-        load_prompt("themes", notes=json.dumps([n["note"] for n in notes])),
+        load_prompt("themes", notes=json.dumps([n["note"] for n in notes], ensure_ascii=False)),
         temperature=0.4,
         fallback=fallback,
     )
