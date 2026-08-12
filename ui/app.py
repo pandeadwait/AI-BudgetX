@@ -35,7 +35,7 @@ def rupees(value: float) -> str:
 
 page = st.sidebar.radio(
     "Page",
-    ["Dashboard", "Add transaction", "Budgets", "Goals", "Chat", "Audit log"],
+    ["Dashboard", "Add transaction", "Budgets", "Goals", "Chat"],
     label_visibility="collapsed",
 )
 st.sidebar.caption("Single seeded user · INR · monthly periods")
@@ -231,20 +231,3 @@ elif page == "Chat":
             st.caption(f"tool: `{result['tool_used']}`")
             if result["facts"]:
                 st.json(result["facts"], expanded=False)
-
-# --- Audit log ------------------------------------------------------------
-else:
-    st.title("What actually left the machine")
-    st.caption("Every provider call, the exact redacted payload, and what was stripped.")
-    rows = api("GET", "/audit/llm-calls")
-    if not rows:
-        st.info("No LLM calls yet.")
-    for row in rows:
-        stripped = row["fields_stripped"] or "nothing matched"
-        with st.expander(
-            f"#{row['id']} · {row['task']} · {row['latency_ms']}ms · "
-            f"{'cache hit' if row['cache_hit'] else 'live call'} · stripped: {stripped}"
-        ):
-            st.code(row["prompt_sent"])
-            st.caption(f"model: {row['model']}")
-            st.text(row["response"])
