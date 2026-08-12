@@ -18,11 +18,13 @@
 
 ### In scope
 - Manual transaction entry: amount + category dropdown + optional note
+- Category management: add custom categories, delete unused categories (min 5 categories enforced, transaction/budget dependency guards)
 - Budget creation per category per month
 - Real-time budget alerts with pace-based projection
 - Savings goals with feasibility calculation
 - Chatbot for recommendations and Q&A over the user's own data
 - PII redaction layer + LLM audit log
+
 
 ### Explicitly out of scope (state these as assumptions)
 - Authentication / multi-tenant security (single seeded user)
@@ -143,7 +145,9 @@ Split it per service when a rerun costs more than a glance.
 - **Snapshot `spent_at_trigger` and `limit_at_trigger`** — alert history stays truthful even if the user later edits the budget.
 - **`saved_amount` denormalised on Goal** + a contribution ledger *(ledger **not built** — the denormalised total is there and drives the progress bar; the ledger is what would make a savings trend chart possible)*.
 - **Indexes:** `(user_id, txn_date)` and `(user_id, category_id, txn_date)` — every dashboard query filters on exactly these.
+- **Category deletion safeguards:** Enforce a hard minimum floor of 5 categories to preserve system classification usability; block deletion if transactions or budgets are linked to prevent orphaned relational data.
 - **`enrich_status` on Transaction** — LLM enrichment never blocks the insert. If the API rate-limits mid-demo, transactions still save and alerts still fire.
+
 
 ### Seed categories
 ```
@@ -169,6 +173,8 @@ POST   /transactions            {amount, category_id, note?, txn_date?}
                                 → returns txn + alert (if triggered) in one round trip
 GET    /transactions?month=
 GET    /categories
+POST   /categories              {name, is_essential?} → returns created category
+DELETE /categories/{id}         → deletes category (requires >5 categories, 0 transactions/budgets)
 
 POST   /budgets                 {category_id, limit_amount, period_start}
 GET    /budgets?month=          → each with spent, pct_used, projected_total,

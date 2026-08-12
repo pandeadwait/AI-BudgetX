@@ -5,11 +5,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 ORM = ConfigDict(from_attributes=True)
 
 
+class CategoryIn(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    is_essential: bool = False
+
+
 class CategoryOut(BaseModel):
     model_config = ORM
     id: int
     name: str
     is_essential: bool
+
 
 
 class TransactionIn(BaseModel):

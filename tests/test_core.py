@@ -244,3 +244,81 @@ def test_session_pooler_keeps_prepared_statements():
 
 def test_explicit_sslmode_is_not_doubled():
     assert normalise(SUPABASE_POOLER + "?sslmode=verify-full").count("sslmode") == 1
+
+
+# --- category management --------------------------------------------------
+
+from fastapi import HTTPException
+from app.routers.transactions import add_category, delete_category
+from app.schemas import CategoryIn
+
+
+def test_add_category_success(db):
+    cat = add_category(CategoryIn(name="Travel", is_essential=False), db)
+    assert cat.id is not None
+    assert cat.name == "Travel"
+    assert not cat.is_essential
+
+
+def test_add_category_duplicate_rejected(db):
+    add_category(CategoryIn(name="Health", is_essential=True), db)
+    with pytest.raises(HTTPException) as exc_info:
+        add_category(CategoryIn(name="health", is_essential=False), db)
+    assert exc_info.value.status_code == 409
+    assert "already exists" in exc_info.value.detail
+
+
+def test_delete_category_minimum_limit(db):
+    # db fixture starts with only 2 categories (<= 5)
+    with pytest.raises(HTTPException) as exc_info:
+        delete_category(1, db)
+    assert exc_info.value.status_code == 400
+    assert "minimum 5 categories" in exc_info.value.detail
+
+
+def test_delete_category_with_transactions_rejected(db):
+    # Seed up to 6 categories
+    for i in range(3, 7):
+        db.add(Category(id=i, name=f"Cat {i}", is_essential=False))
+    db.commit()
+
+    # Add transaction to Cat 3
+    spend(db, 500, on=date.today(), category_id=3)
+
+    with pytest.raises(HTTPException) as exc_info:
+        delete_category(3, db)
+    assert exc_info.value.status_code == 400
+    assert "transactions exist" in exc_info.value.detail
+
+
+def test_delete_category_with_budgets_rejected(db):
+    # Seed up to 6 categories
+    for i in range(3, 7):
+        db.add(Category(id=i, name=f"Cat {i}", is_essential=False))
+    db.commit()
+
+    # Add budget to Cat 4
+    make_budget(db, category_id=4)
+
+    with pytest.raises(HTTPException) as exc_info:
+        delete_category(4, db)
+    assert exc_info.value.status_code == 400
+    assert "active budgets exist" in exc_info.value.detail
+
+
+def test_delete_category_success(db):
+    # Seed up to 6 categories
+    for i in range(3, 7):
+        db.add(Category(id=i, name=f"Cat {i}", is_essential=False))
+    db.commit()
+
+    res = delete_category(6, db)
+    assert res == {"status": "deleted", "id": 6}
+    assert db.get(Category, 6) is None
+
+
+def test_delete_category_not_found(db):
+    with pytest.raises(HTTPException) as exc_info:
+        delete_category(999, db)
+    assert exc_info.value.status_code == 404
+

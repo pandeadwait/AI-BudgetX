@@ -92,6 +92,8 @@ tests/          the math layer
 |---|---|
 | `POST /transactions` | insert + alert + reallocation in one round trip |
 | `GET /transactions?month=` · `GET /categories` | |
+| `POST /categories` · `DELETE /categories/{id}` | create category / delete unused category (min 5 categories enforced) |
+
 | `POST /budgets` · `GET /budgets?month=` | each with spent, pct, projection, days left |
 | `POST /budgets/suggest` | limits proposed from actual history, clamped server-side |
 | `POST /goals` · `GET /goals` · `GET /goals/{id}/plan` | feasibility, monthly required, gap |

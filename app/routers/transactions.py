@@ -1,13 +1,13 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai import narrate
 from app.db import DEMO_USER_ID, get_db
-from app.models import Category, Transaction
-from app.schemas import CategoryOut, TransactionIn, TransactionOut, TransactionResult
+from app.models import Budget, Category, Transaction
+from app.schemas import CategoryIn, CategoryOut, TransactionIn, TransactionOut, TransactionResult
 from app.services import alerts as alert_svc
 from app.services import budgets as budget_svc
 from app.services.spending import month_bounds
@@ -18,6 +18,68 @@ router = APIRouter(tags=["transactions"])
 @router.get("/categories", response_model=list[CategoryOut])
 def list_categories(db: Session = Depends(get_db)):
     return db.execute(select(Category).order_by(Category.name)).scalars().all()
+
+
+@router.post("/categories", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
+def add_category(payload: CategoryIn, db: Session = Depends(get_db)):
+    cleaned_name = payload.name.strip()
+    existing = db.execute(
+        select(Category).where(func.lower(Category.name) == cleaned_name.lower())
+    ).scalar()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Category with this name already exists",
+        )
+
+    category = Category(name=cleaned_name, is_essential=payload.is_essential)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.delete("/categories/{category_id}")
+def delete_category(category_id: int, db: Session = Depends(get_db)):
+    category = db.get(Category, category_id)
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    total_categories = db.execute(select(func.count(Category.id))).scalar() or 0
+    if total_categories <= 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete category: minimum 5 categories must be maintained",
+        )
+
+    txn_count = (
+        db.execute(
+            select(func.count(Transaction.id)).where(Transaction.category_id == category_id)
+        ).scalar()
+        or 0
+    )
+    if txn_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete category: transactions exist for this category",
+        )
+
+    budget_count = (
+        db.execute(
+            select(func.count(Budget.id)).where(Budget.category_id == category_id)
+        ).scalar()
+        or 0
+    )
+    if budget_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete category: active budgets exist for this category",
+        )
+
+    db.delete(category)
+    db.commit()
+    return {"status": "deleted", "id": category_id}
+
 
 
 @router.post("/transactions", response_model=TransactionResult)
