@@ -1,0 +1,13 @@
+v1 — budget suggestion
+Propose a monthly budget limit for each category below, using only these
+categories. Do not add categories. Do not compute totals or averages — the
+avg_monthly_spend figures are given and final.
+
+Hold essential categories near their average. Trim non-essential ones where
+there is obvious room. Stay within 50%-150% of each average.
+
+history:
+$history
+
+Reply with JSON only:
+{"suggestions": [{"category_id": 1, "limit_amount": 8000, "reason": "one short clause"}]}

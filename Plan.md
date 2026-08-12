@@ -38,7 +38,7 @@
 |---|---|---|
 | API | FastAPI + Pydantic v2 | Async I/O hides LLM latency; schema validation gives a free contract; auto OpenAPI docs double as documentation deliverable |
 | ORM | SQLAlchemy 2.0 | Declarative typed models; swaps SQLite → Postgres with one connection string change |
-| DB | SQLite | Workload is aggregation-heavy (`SUM` grouped by category over date ranges) and budget writes need ACID. Relational, not document |
+| DB | PostgreSQL | Workload is aggregation-heavy (`SUM` grouped by category over date ranges) and budget writes need ACID. Relational, not document. Real `NUMERIC` for money, and the scale path (connection pooling, read replicas, sharding by `user_id`) needs no rewrite. Test suite runs the same models on in-memory SQLite for speed |
 | LLM | Gemini Flash (fallback: Groq) | Sub-second latency matters for live chat demo; native structured-output support; generous free tier |
 | UI | Streamlit | Python-native (no build step, no context switch), charts in 3 lines. Say out loud: *"chosen for prototype velocity; React/Next.js for production"* |
 | Testing | pytest | Focused on the deterministic math layer, not LLM wording |
@@ -265,7 +265,7 @@ Test the deterministic layer hard, the LLM layer loosely.
 
 ## 10. Scalability roadmap (say this as future work, not as built)
 
-- SQLite → Postgres via connection string; shard by `user_id`
+- Shard Postgres by `user_id`; read replicas for the aggregate endpoints
 - Note enrichment → Celery/RQ worker so ingest returns immediately
 - Materialised monthly-summary table so the dashboard never scans raw transactions
 - Redis in front of aggregate endpoints

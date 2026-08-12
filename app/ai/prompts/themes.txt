@@ -1,0 +1,13 @@
+v1 — behavioural theme clustering
+Below are short spending notes a user wrote about their own purchases, with the
+category each belongs to. Amounts, dates and identity have been removed.
+
+Group them into at most 4 behavioural themes — the *reason* the spending
+happens (tiredness, social pressure, convenience, stress, planning), not the
+category. Count how many notes fall in each theme. Count only what you see.
+
+notes:
+$notes
+
+Reply with JSON only:
+{"themes": [{"theme": "short label", "count": 11, "insight": "one sentence, no numbers other than count"}]}
