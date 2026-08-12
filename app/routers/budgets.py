@@ -22,6 +22,20 @@ def create_budget(payload: BudgetIn, db: Session = Depends(get_db)):
         raise HTTPException(404, "unknown category")
     start, end = month_bounds(payload.period_start.strftime("%Y-%m") if payload.period_start else None)
 
+    existing = db.execute(
+        select(Budget).where(
+            Budget.user_id == DEMO_USER_ID,
+            Budget.category_id == payload.category_id,
+            Budget.period_start == start,
+        )
+    ).scalar()
+
+    if existing:
+        existing.limit_amount = round(payload.limit_amount, 2)
+        db.commit()
+        db.refresh(existing)
+        return budget_svc.status(db, existing)
+
     budget = Budget(
         user_id=DEMO_USER_ID,
         category_id=payload.category_id,
@@ -30,13 +44,22 @@ def create_budget(payload: BudgetIn, db: Session = Depends(get_db)):
         period_end=end,
     )
     db.add(budget)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "a budget for that category and period already exists")
+    db.commit()
     db.refresh(budget)
     return budget_svc.status(db, budget)
+
+
+@router.put("/budgets/{budget_id}", response_model=BudgetOut)
+def update_budget(budget_id: int, payload: BudgetIn, db: Session = Depends(get_db)):
+    budget = db.get(Budget, budget_id)
+    if not budget or budget.user_id != DEMO_USER_ID:
+        raise HTTPException(404, "budget not found")
+
+    budget.limit_amount = round(payload.limit_amount, 2)
+    db.commit()
+    db.refresh(budget)
+    return budget_svc.status(db, budget)
+
 
 
 @router.get("/budgets", response_model=list[BudgetOut])

@@ -322,3 +322,26 @@ def test_delete_category_not_found(db):
         delete_category(999, db)
     assert exc_info.value.status_code == 404
 
+
+# --- budget updates --------------------------------------------------------
+
+from app.routers.budgets import create_budget, update_budget
+from app.schemas import BudgetIn
+
+
+def test_create_budget_upserts_existing_limit(db):
+    res1 = create_budget(BudgetIn(category_id=1, limit_amount=10_000.0), db)
+    assert res1["limit_amount"] == 10_000.0
+
+    # Upsert with new limit
+    res2 = create_budget(BudgetIn(category_id=1, limit_amount=15_000.0), db)
+    assert res2["limit_amount"] == 15_000.0
+    assert res2["id"] == res1["id"]
+
+
+def test_put_update_budget_success(db):
+    budget_res = create_budget(BudgetIn(category_id=2, limit_amount=5_000.0), db)
+    updated = update_budget(budget_res["id"], BudgetIn(category_id=2, limit_amount=8_000.0), db)
+    assert updated["limit_amount"] == 8_000.0
+
+

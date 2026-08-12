@@ -8,7 +8,8 @@ import httpx
 import pandas as pd
 import streamlit as st
 
-API = os.getenv("API_BASE", "http://localhost:8000")
+API = os.getenv("API_BASE", "http://127.0.0.1:8000")
+
 
 st.set_page_config(page_title="AI BudgetX", page_icon="₹", layout="wide")
 
@@ -152,13 +153,17 @@ elif page == "Budgets":
     else:
         st.info("No budgets for this month yet.")
 
-    with st.expander("Set a budget"):
+    with st.expander("Set or update a budget"):
         cats = {c["name"]: c["id"] for c in categories()}
         name = st.selectbox("Category", list(cats), key="budget_cat")
-        limit = st.number_input("Monthly limit (₹)", min_value=100.0, step=500.0, value=10_000.0)
-        if st.button("Save budget"):
+        existing_budget = next((r for r in (rows or []) if r["category_id"] == cats[name]), None)
+        default_limit = float(existing_budget["limit_amount"]) if existing_budget else 10_000.0
+        limit = st.number_input("Monthly limit (₹)", min_value=100.0, step=500.0, value=default_limit, key=f"budget_limit_{cats[name]}")
+        btn_label = "Update budget" if existing_budget else "Save budget"
+        if st.button(btn_label):
             api("POST", "/budgets", json={"category_id": cats[name], "limit_amount": limit})
             st.rerun()
+
 
     if st.button("Suggest limits from my history"):
         for item in api("POST", "/budgets/suggest")["suggestions"]:
