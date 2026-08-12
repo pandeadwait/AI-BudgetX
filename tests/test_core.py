@@ -72,13 +72,39 @@ def spend(db, amount, on, category_id=1, txn_type="expense"):
         (99.9, 0, WARN),
         (100.0, 0, BREACH),       # exact boundary fires
         (120.0, 999_999, BREACH), # breach outranks projection
-        (40.0, 10_001, PROJECTED_OVERRUN),  # pace beats the 80% line
-        (85.0, 10_001, PROJECTED_OVERRUN),
+        (40.0, 10_500, PROJECTED_OVERRUN),  # pace beats the 80% line
+        (85.0, 10_500, PROJECTED_OVERRUN),
         (40.0, 10_000, None),     # projection equal to limit is not an overrun
+        # Noise, not a signal: an on-pace category lands within float dust of
+        # its limit, and being ₹0.01 over is not worth interrupting anyone.
+        (40.0, 10_000.01, None),
+        (40.0, 10_200, None),     # exactly on the 2% margin does not fire
+        (40.0, 10_201, PROJECTED_OVERRUN),  # past it does
+        (85.0, 10_000.01, WARN),  # falls through to the ordinary threshold
     ],
 )
 def test_pick_level(pct, projected, expected):
     assert alerts.pick_level(pct, projected, limit=10_000) == expected
+
+
+def test_trivial_overshoot_is_not_reported_as_over(db):
+    start = date.today().replace(day=1)
+    budget = make_budget(db, limit=1_200, start=start, days=30)
+    # Spent essentially on pace, a paisa heavy — the case that reached the user
+    # as "₹1,200.01 projected vs ₹1,200.00 limit".
+    spend(db, 400.01, on=start + timedelta(days=9))
+    state = budgets.status(db, budget, as_of=start + timedelta(days=9))
+    assert state["projected_total"] > state["limit_amount"], "setup should project over"
+    assert state["projected_over"] == 0.0
+    assert alerts.evaluate(db, spend(db, 0.01, on=start + timedelta(days=9))) is None
+
+
+def test_material_overshoot_still_reported(db):
+    start = date.today().replace(day=1)
+    budget = make_budget(db, limit=1_200, start=start, days=30)
+    spend(db, 500, on=start + timedelta(days=9))  # projects to 1,500
+    state = budgets.status(db, budget, as_of=start + timedelta(days=9))
+    assert state["projected_over"] == 300.0
 
 
 def test_projection_on_day_one_does_not_divide_by_zero(db):
@@ -104,11 +130,14 @@ def test_backdated_transaction_does_not_project_past_period_end(db):
 
 def test_same_level_fires_exactly_once(db):
     start = date.today().replace(day=1)
-    budget = make_budget(db, limit=10_000, start=start, days=30)
+    make_budget(db, limit=10_000, start=start, days=30)
+    # Day 29 of 30, so the projection stays under the limit and both
+    # evaluations land on WARN — otherwise this tests escalation, not cooldown.
+    late = start + timedelta(days=28)
 
-    first = alerts.evaluate(db, spend(db, 9_000, on=start + timedelta(days=25)))
-    assert first is not None
-    second = alerts.evaluate(db, spend(db, 100, on=start + timedelta(days=26)))
+    first = alerts.evaluate(db, spend(db, 8_200, on=late))
+    assert first.level == WARN
+    second = alerts.evaluate(db, spend(db, 100, on=late))
     assert second is None, "cooldown broken: same level fired twice"
 
 

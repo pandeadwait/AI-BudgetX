@@ -20,7 +20,7 @@ def pick_level(pct_used: float, projected: float, limit: float) -> str | None:
     # someone burning fast on day 6 hears about it at 40% instead of waiting.
     if pct_used >= 100:
         return BREACH
-    if projected > limit:
+    if budget_svc.overrun_amount(projected, limit):
         return PROJECTED_OVERRUN
     if pct_used >= 80:
         return WARN
@@ -88,8 +88,8 @@ def reallocation(db: Session, user_id: int, over: Budget, on: date | None = None
     """Find a budget tracking under that could cover another's projected overrun."""
     on = on or date.today()
     over_state = budget_svc.status(db, over, as_of=on)
-    shortfall = round(over_state["projected_total"] - over.limit_amount, 2)
-    if shortfall <= 0:
+    shortfall = over_state["projected_over"]
+    if not shortfall:
         return None
 
     slack = []
@@ -97,8 +97,8 @@ def reallocation(db: Session, user_id: int, over: Budget, on: date | None = None
         if other.id == over.id:
             continue
         state = budget_svc.status(db, other, as_of=on)
-        spare = round(other.limit_amount - state["projected_total"], 2)
-        if spare > 0:
+        spare = budget_svc.slack_amount(state["projected_total"], other.limit_amount)
+        if spare:
             slack.append((spare, state["category_name"]))
     if not slack:
         return None

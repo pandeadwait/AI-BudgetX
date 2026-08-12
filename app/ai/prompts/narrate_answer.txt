@@ -11,4 +11,6 @@ $question
 facts:
 $facts
 
-Answer in two sentences or fewer. Indian rupees. End with one concrete action.
+Answer in two sentences or fewer. End with one concrete action.
+Write amounts as whole rupees with thousands separators — ₹2,160, not ₹2160.0.
+That is formatting, not calculation: never change a figure's value.

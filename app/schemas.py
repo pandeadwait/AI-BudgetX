@@ -74,6 +74,7 @@ class BudgetOut(BaseModel):
     spent: float
     pct_used: float
     projected_total: float
+    projected_over: float  # 0.0 unless materially over — never recompute this
     days_left: int
 
 

@@ -143,10 +143,11 @@ elif page == "Budgets":
             use_container_width=True,
         )
         for row in rows:
-            if row["projected_total"] > row["limit_amount"]:
+            if row["projected_over"]:
                 st.warning(
                     f"{row['category_name']} is on pace to finish at "
-                    f"{rupees(row['projected_total'])} against {rupees(row['limit_amount'])}."
+                    f"{rupees(row['projected_total'])} against {rupees(row['limit_amount'])} "
+                    f"— {rupees(row['projected_over'])} over."
                 )
     else:
         st.info("No budgets for this month yet.")

@@ -8,6 +8,25 @@ from sqlalchemy.orm import Session
 from app.models import Budget, Transaction
 from app.services.spending import month_bounds
 
+# A linear projection from a part-month is a rough instrument, so treating any
+# overshoot at all as "heading over" is noise: a category spending exactly on
+# pace lands within float dust of its limit and flips over/under at random.
+# Nobody needs telling they are ₹0.01 over a ₹1,200 subscription budget.
+# Proportional rather than a flat rupee floor, so it scales with the budget.
+OVERRUN_MARGIN = 0.02  # 2% of the limit
+
+
+def overrun_amount(projected: float, limit: float) -> float:
+    """How far past the limit the projection lands — 0.0 if not materially over."""
+    excess = projected - limit
+    return round(excess, 2) if excess > limit * OVERRUN_MARGIN else 0.0
+
+
+def slack_amount(projected: float, limit: float) -> float:
+    """Headroom worth reallocating — 0.0 if it is only tracking a hair under."""
+    spare = limit - projected
+    return round(spare, 2) if spare > limit * OVERRUN_MARGIN else 0.0
+
 
 def spent_for(db: Session, budget: Budget, as_of: date | None = None) -> float:
     end = min(as_of, budget.period_end) if as_of else budget.period_end
@@ -44,6 +63,9 @@ def status(db: Session, budget: Budget, as_of: date | None = None) -> dict:
         "spent": spent,
         "pct_used": pct_used,
         "projected_total": projected,
+        # Computed once here so no caller — chat, UI, alerts — reinvents the
+        # comparison and reintroduces the 1-paisa false positive.
+        "projected_over": overrun_amount(projected, budget.limit_amount),
         "days_left": max(days_total - days_elapsed, 0),
     }
 

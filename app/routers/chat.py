@@ -51,13 +51,13 @@ def run_tool(db: Session, name: str, args: dict) -> tuple[dict, str]:
 
     if name == "budget_status":
         states = [budget_svc.status(db, b) for b in budget_svc.for_month(db, DEMO_USER_ID, args.get("month"))]
-        risky = [s for s in states if s["projected_total"] > s["limit_amount"]]
+        risky = [s for s in states if s["projected_over"]]
         facts = {"budgets": states, "projected_over": [s["category_name"] for s in risky]}
         if not states:
             return facts, "You haven't set any budgets for this month yet."
         if not risky:
             return facts, f"All {len(states)} budgets are on pace."
-        worst = max(risky, key=lambda s: s["projected_total"] - s["limit_amount"])
+        worst = max(risky, key=lambda s: s["projected_over"])
         return facts, (
             f"{worst['category_name']} is the problem: ₹{worst['spent']:,.0f} of "
             f"₹{worst['limit_amount']:,.0f} used, projected to finish at "
